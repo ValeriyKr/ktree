@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <dirent.h>
 #include <string.h>
 
@@ -20,10 +22,9 @@ typedef struct node_t {
 int ncmp(const void *a, const void *b) {
     node_t *n1 = *((node_t**) a);
     node_t *n2 = *((node_t**) b);
+    if (NULL == n1) return NULL == n2 ? 0 : -1;
+    if (NULL == n2) return 1;
     return strcmp(n1->name, n2->name);
-    if ((n1->flags & NODE_DIR) && !(n2->flags & NODE_DIR)) return -1;
-    if ((n2->flags & NODE_DIR) && !(n1->flags & NODE_DIR)) return 1;
-    return n1>n2;
 }
 
 
@@ -65,10 +66,18 @@ node_t* make_tree(const char *path) {
 
     struct dirent *dp;
     while (NULL != (dp = readdir(curr))) {
-        if (!(dp->d_type & DT_DIR)) {
+        if (dp->d_name[0] == '.') continue;
+        struct stat sb;
+        char *fname = (char*) malloc(path_len + strlen(dp->d_name) + 1);
+        strcpy(fname, node->name);
+        strcat(fname, dp->d_name);
+        if (0 != lstat(fname, &sb)) {
+            free(node);
+            return NULL;
+        }
+        if (!S_ISDIR(sb.st_mode)) {
             if (NULL == (node->subnodes[node->subnodes_count] = (node_t*) malloc(sizeof(node_t))) ||
-                fill_node(node->subnodes[node->subnodes_count++], dp->d_name,
-                          NULL, 0, NODE_REG)) {
+                fill_node(node->subnodes[node->subnodes_count++], dp->d_name, NULL, 0, NODE_REG)) {
                 free(node);
                 return NULL;
             }
@@ -79,11 +88,9 @@ node_t* make_tree(const char *path) {
                 free(node);
                 return NULL;
             }
-            strcpy(subdir, node->name);
-            strcat(subdir, dp->d_name);
-            node->subnodes[node->subnodes_count++] = make_tree(subdir);
-            free(subdir);
+            node->subnodes[node->subnodes_count++] = make_tree(fname);
         }
+        free(fname);
     }
     closedir(curr);
     qsort(node->subnodes, node->subnodes_count, sizeof(node_t*), ncmp);
