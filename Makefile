@@ -1,7 +1,7 @@
 # Made by ValeriyKr #
 CC = clang
 CFLAGS = -c -std=c99 -g -Wall -Wextra -pedantic 
-SOURCES = main.c
+SOURCES = main.c node.c
 OBJECTS = $(SOURCES:.c=.o)
 EXECUTABLE = tree
 

@@ -8,94 +8,7 @@
 #include <dirent.h>
 #include <string.h>
 
-#define NODE_DIR 0x1
-#define NODE_REG 0x2
-
-typedef struct node_t {
-    char *name;
-    struct node_t **subnodes;
-    size_t subnodes_count;
-    unsigned int flags;
-} node_t;
-
-
-int ncmp(const void *a, const void *b) {
-    node_t *n1 = *((node_t**) a);
-    node_t *n2 = *((node_t**) b);
-    if (NULL == n1) return NULL == n2 ? 0 : -1;
-    if (NULL == n2) return 1;
-    return strcmp(n1->name, n2->name);
-}
-
-
-inline static int fill_node(node_t *node, const char *name,
-                            node_t **subnodes, size_t subnodes_count,
-                            unsigned int flags) {
-    if (NULL == (node->name = (char*) malloc(strlen(name)))) return 1;
-    strcpy(node->name, name);
-    node->subnodes = subnodes;
-    node->subnodes_count = subnodes_count;
-    node->flags = flags;
-    return 0;
-}
-
-
-node_t* make_tree(const char *path) {
-    DIR *curr;
-    size_t path_len;
-    if (0 == (path_len = strlen(path))) return 0;
-    if (NULL == (curr = opendir(path))) {
-        perror(path);
-        return NULL;
-    }
-
-    node_t *node = (node_t*) malloc(sizeof(node_t));
-    if (NULL == node) return NULL;
-    node->name = (char*) malloc(path_len + 2);
-    strcpy(node->name, path);
-    if (path[path_len-1] != '/') {
-        strcat(node->name, "/");
-        path_len++;
-    }
-    if (NULL == (node->subnodes = (node_t**) malloc(sizeof(node_t*)*2056))) {
-        free(node);
-        return NULL;
-    }
-    node->subnodes_count = 0;
-    node->flags = NODE_DIR;
-
-    struct dirent *dp;
-    while (NULL != (dp = readdir(curr))) {
-        if (dp->d_name[0] == '.') continue;
-        struct stat sb;
-        char *fname = (char*) malloc(path_len + strlen(dp->d_name) + 1);
-        strcpy(fname, node->name);
-        strcat(fname, dp->d_name);
-        if (0 != lstat(fname, &sb)) {
-            free(node);
-            return NULL;
-        }
-        if (!S_ISDIR(sb.st_mode)) {
-            if (NULL == (node->subnodes[node->subnodes_count] = (node_t*) malloc(sizeof(node_t))) ||
-                fill_node(node->subnodes[node->subnodes_count++], dp->d_name, NULL, 0, NODE_REG)) {
-                free(node);
-                return NULL;
-            }
-        } else {
-            if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, ".")) continue;
-            char *subdir = (char*) malloc(path_len + strlen(dp->d_name) + 1);
-            if (NULL == subdir) {
-                free(node);
-                return NULL;
-            }
-            node->subnodes[node->subnodes_count++] = make_tree(fname);
-        }
-        free(fname);
-    }
-    closedir(curr);
-    qsort(node->subnodes, node->subnodes_count, sizeof(node_t*), ncmp);
-    return node;
-}
+#include "node.h"
 
 
 static const char * basename(const char *name) {
@@ -107,7 +20,11 @@ static const char * basename(const char *name) {
 
 void nputs(const node_t *node, size_t deep) {
     if (NULL == node) return;
-    puts(basename(node->name));
+    if (node->flags & NODE_ERR) {
+        printf("%s [error while opening]\n", basename(node->name));
+    } else {
+        puts(basename(node->name));
+    }
     for (size_t i = 0; i < node->subnodes_count; ++i) {
         for (size_t j = 0; j < deep; ++j)
             printf("│   ");
@@ -115,6 +32,7 @@ void nputs(const node_t *node, size_t deep) {
             printf("└── ");
         else
             printf("├── ");
+        fflush(stdout);
         nputs(node->subnodes[i], deep+1);
     }
 }
@@ -122,13 +40,20 @@ void nputs(const node_t *node, size_t deep) {
 
 int main(int argc, char **argv) {
     node_t *root;
+    size_t total_dirs = 0, total_files = 0;
     if (1 == argc) {
-        root = make_tree(".");
+        root = make_tree(".", &total_files, &total_dirs);
     } else {
         for (int i = 1; i < argc; ++i)
-            root = make_tree(argv[i]);
+            root = make_tree(argv[i], &total_files, &total_dirs);
+    }
+    if (NULL == root) {
+        perror("Error while making tree");
+        return -1;
     }
     nputs(root, 0);
+    delete_tree(root);
+    printf("\n%lu directories, %lu files\n", total_dirs, total_files);
 
     return 0;
 }
