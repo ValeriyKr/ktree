@@ -1,5 +1,5 @@
 /* Made by ValeriyKr */
-#include <stdio.h>
+
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -17,9 +17,6 @@ static int node_cmp(const void *a, const void *b) {
                NULL == n2 ?
                    0 : -1
                ) : (NULL == n2 ? 1 : strcmp(n1->name, n2->name));
-//  if (NULL == n1) return NULL == n2 ? 0 : -1;
-//  if (NULL == n2) return 1;
-//  return strcmp(n1->name, n2->name);
 }
 
 
