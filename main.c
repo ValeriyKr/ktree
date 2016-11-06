@@ -1,11 +1,6 @@
 /* Made by ValeriyKr */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <dirent.h>
 #include <string.h>
 
 #include "node.h"
@@ -52,8 +47,8 @@ int main(int argc, char **argv) {
         return -1;
     }
     nputs(root, 0);
-    delete_tree(root);
     printf("\n%lu directories, %lu files\n", total_dirs, total_files);
+    delete_tree(root);
 
     return 0;
 }

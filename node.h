@@ -1,3 +1,5 @@
+/* Made by ValeriyKr */
+
 #ifndef _NODE_H_
 #define _NODE_H_
 
