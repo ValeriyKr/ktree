@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "node.h"
 
@@ -48,11 +49,15 @@ node_t* make_tree(const char *path, size_t *total_files, size_t *total_dirs) {
         root->subnodes = NULL;
         return root;
     }
-    if (NULL == (root->subnodes = (node_t**) malloc(sizeof(node_t*)*256))) {
+    size_t files_count = 0;
+    for (; NULL != readdir(dir); files_count++);
+    if (NULL == (root->subnodes =
+                 (node_t**) malloc(sizeof(node_t*)*files_count))) {
         delete_tree(root);
         return NULL;
     }
 
+    dir = opendir(root->name);
     struct dirent *dp;
     while (NULL != (dp = readdir(dir))) {
         if (dp->d_name[0] == '.') continue;
@@ -73,7 +78,7 @@ node_t* make_tree(const char *path, size_t *total_files, size_t *total_dirs) {
             delete_tree(root);
             return NULL;
         }
-    if (S_ISDIR(st.st_mode)) {
+        if (S_ISDIR(st.st_mode)) {
             // Directory
             if (NULL == (root->subnodes[root->subnodes_count++] =
                          make_tree(fname, total_files, total_dirs))) {
@@ -86,7 +91,7 @@ node_t* make_tree(const char *path, size_t *total_files, size_t *total_dirs) {
             if (NULL == (root->subnodes[root->subnodes_count] = 
                          (node_t*) malloc(sizeof(node_t))) ||
                 NULL == (root->subnodes[root->subnodes_count]->name = 
-                         (char*) malloc(strlen(dp->d_name)))) {
+                         (char*) malloc(strlen(dp->d_name)+1))) {
                 delete_tree(root);
                 return NULL;
             }
@@ -110,6 +115,7 @@ void delete_tree(node_t *root) {
     if (NULL == root) return;
     for (size_t i = 0; i < root->subnodes_count; ++i)
         delete_tree(root->subnodes[i]);
+    free(root->name);
     free(root->subnodes);
     free(root);
 }

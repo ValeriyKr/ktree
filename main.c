@@ -47,8 +47,8 @@ int main(int argc, char **argv) {
         return -1;
     }
     nputs(root, 0);
-    delete_tree(root);
     printf("\n%lu directories, %lu files\n", total_dirs, total_files);
+    delete_tree(root);
 
     return 0;
 }
